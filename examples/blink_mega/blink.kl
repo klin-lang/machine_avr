@@ -1,0 +1,13 @@
+// Arduino Mega 2560: D13 LED = PORTB.7 (PB7).
+import "../../machine_avr" machine
+
+fn main() {
+    let led = machine.pin_out_2560(machine.Port2560.B, 7)
+    while true {
+        led.toggle()
+        let mut i: i32 = 0
+        while i < 200000 {
+            i = i + 1
+        }
+    }
+}

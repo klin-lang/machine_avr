@@ -1,0 +1,23 @@
+module machine_avr
+
+import testing
+
+// Host-safe checks only (no MMIO). Skipped on package import (*_test.kl).
+
+fn test_version_is_one() {
+    testing.assert_eq_i32(version(), 1)
+}
+
+fn test_port_328_indices() {
+    testing.assert_eq_i32(cast(i32, Port.B), 0)
+    testing.assert_eq_i32(cast(i32, Port.C), 1)
+    testing.assert_eq_i32(cast(i32, Port.D), 2)
+}
+
+fn test_port_2560_indices() {
+    testing.assert_eq_i32(cast(i32, Port2560.A), 0)
+    testing.assert_eq_i32(cast(i32, Port2560.B), 1)
+    testing.assert_eq_i32(cast(i32, Port2560.G), 6)
+    testing.assert_eq_i32(cast(i32, Port2560.H), 7)
+    testing.assert_eq_i32(cast(i32, Port2560.L), 10)
+}

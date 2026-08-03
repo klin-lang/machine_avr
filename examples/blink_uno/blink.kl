@@ -1,0 +1,13 @@
+// Arduino Uno / Nano / Pro Mini: D13 LED = PORTB.5 (PB5).
+import "../../machine_avr" machine
+
+fn main() {
+    let led = machine.pin_out(machine.Port.B, 5)
+    while true {
+        led.toggle()
+        let mut i: i32 = 0
+        while i < 200000 {
+            i = i + 1
+        }
+    }
+}
