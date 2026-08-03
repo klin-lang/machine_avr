@@ -7,7 +7,7 @@ Not a MicroPython port. No GC, no hidden heap — Pin configures `DDRx` /
 `PORTx` / `PINx` explicitly via MMIO.
 
 For **ATxmega** (different PORT map @ `0x0600`), see
-[`machine_atmel`](https://github.com/klin-lang/machine_atmel).
+[`machine_xmega`](https://github.com/klin-lang/machine_xmega).
 
 Decision / catalog: [Klin issue 061](https://github.com/klin-lang/klin/blob/main/issues/061-micropython-machine-api.md).
 
