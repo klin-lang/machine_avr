@@ -1,0 +1,16 @@
+module machine_avr
+
+import testing
+
+fn test_i32_to_u8_roundtrip() {
+    testing.assert_eq_i32(u8_as_i32(i32_to_u8(0)), 0)
+    testing.assert_eq_i32(u8_as_i32(i32_to_u8(1)), 1)
+    testing.assert_eq_i32(u8_as_i32(i32_to_u8(127)), 127)
+    testing.assert_eq_i32(u8_as_i32(i32_to_u8(255)), 255)
+    testing.assert_eq_i32(u8_as_i32(i32_to_u8(256)), 0)
+}
+
+fn test_u16_bytes() {
+    testing.assert_eq_i32(u8_as_i32(u16_lo(0x1234)), 0x34)
+    testing.assert_eq_i32(u8_as_i32(u16_hi(0x1234)), 0x12)
+}

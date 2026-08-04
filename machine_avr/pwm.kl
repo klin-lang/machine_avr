@@ -1,0 +1,224 @@
+/// ATmega328P Timer1/Timer2 PWM (MMIO). Explicit `tim_clk_hz` — no clock read.
+/// `tim=1` (16-bit Fast PWM, ICR1 TOP), `tim=2` (8-bit Fast PWM, TOP=0xFF).
+/// `ch=1` → compare A, `ch=2` → compare B.
+/// Uno: PB1=OC1A, PB2=OC1B, PB3=OC2A, PD3=OC2B.
+module machine_avr
+
+pub struct Pwm {
+    tccra: *mut volatile u8
+    tccrb: *mut volatile u8
+    ocr_l: *mut volatile u8
+    ocr_h: *mut volatile u8
+    top_l: *mut volatile u8
+    top_h: *mut volatile u8
+    com_mask: u8
+    tim: i32
+    tim_clk_hz: i32
+}
+
+/// Host-safe: Timer1 CS bits for target tick rate (1/8/64/256/1024).
+fn pwm_t1_cs(tim_clk_hz: i32, freq_hz: i32): i32 {
+    let mut f = freq_hz
+    if f < 1 {
+        f = 1
+    }
+    let mut clk = tim_clk_hz
+    if clk < 1 {
+        clk = 1
+    }
+    if clk / f <= 65536 {
+        return 1
+    }
+    if clk / (8 * f) <= 65536 {
+        return 2
+    }
+    if clk / (64 * f) <= 65536 {
+        return 3
+    }
+    if clk / (256 * f) <= 65536 {
+        return 4
+    }
+    return 5
+}
+
+fn pwm_t1_div(cs: i32): i32 {
+    if cs == 1 { return 1 }
+    if cs == 2 { return 8 }
+    if cs == 3 { return 64 }
+    if cs == 4 { return 256 }
+    return 1024
+}
+
+/// Host-safe: ICR1 TOP for Timer1 at `freq_hz` with chosen `cs`.
+fn pwm_t1_top(tim_clk_hz: i32, freq_hz: i32, cs: i32): i32 {
+    let mut f = freq_hz
+    if f < 1 {
+        f = 1
+    }
+    let div = pwm_t1_div(cs)
+    let mut top = tim_clk_hz / (div * f) - 1
+    if top < 1 {
+        top = 1
+    }
+    if top > 65535 {
+        top = 65535
+    }
+    return top
+}
+
+/// Host-safe: map MicroPython-style duty 0..=65535 onto OCR 0..=top.
+fn pwm_duty_to_ocr(duty: i32, top: i32): i32 {
+    let mut d = duty
+    if d < 0 {
+        d = 0
+    }
+    if d > 65535 {
+        d = 65535
+    }
+    let mut t = top
+    if t < 0 {
+        t = 0
+    }
+    let mut ocr = (d * (t + 1)) / 65536
+    if ocr > t {
+        ocr = t
+    }
+    return ocr
+}
+
+fn pwm_read_top(p: Pwm): i32 {
+    if p.tim == 2 {
+        return 255
+    }
+    let lo = u8_as_i32(*(p.top_l))
+    let hi = u8_as_i32(*(p.top_h))
+    return (hi << 8) | lo
+}
+
+/// Configure pin as Timer PWM output.
+pub fn pwm_out(port: Port, num: i32, tim: i32, ch: i32, tim_clk_hz: i32): Pwm {
+    let pin = pin_out(port, num)
+    if pin.mask == 0 {
+    }
+    if tim == 2 {
+        return pwm_out_t2(ch, tim_clk_hz)
+    }
+    return pwm_out_t1(ch, tim_clk_hz)
+}
+
+fn pwm_out_t1(ch: i32, tim_clk_hz: i32): Pwm {
+    let tccra = cast(*mut volatile u8, 0x80)
+    let tccrb = cast(*mut volatile u8, 0x81)
+    let icr_l = cast(*mut volatile u8, 0x86)
+    let icr_h = cast(*mut volatile u8, 0x87)
+    let mut ocr_l = cast(*mut volatile u8, 0x88)
+    let mut ocr_h = cast(*mut volatile u8, 0x89)
+    let mut com: u8 = 128
+    if ch == 2 {
+        ocr_l = cast(*mut volatile u8, 0x8A)
+        ocr_h = cast(*mut volatile u8, 0x8B)
+        com = 32
+    }
+    // mode 14 Fast PWM ICR1: WGM11|WGM12|WGM13; COM clear-on-match
+    *tccra = com | 2
+    *tccrb = 24
+    let pwm = Pwm{
+        tccra: tccra,
+        tccrb: tccrb,
+        ocr_l: ocr_l,
+        ocr_h: ocr_h,
+        top_l: icr_l,
+        top_h: icr_h,
+        com_mask: com,
+        tim: 1,
+        tim_clk_hz: tim_clk_hz
+    }
+    pwm.freq(1000)
+    pwm.duty_u16(0)
+    return pwm
+}
+
+fn pwm_out_t2(ch: i32, tim_clk_hz: i32): Pwm {
+    let tccra = cast(*mut volatile u8, 0xB0)
+    let tccrb = cast(*mut volatile u8, 0xB1)
+    let mut ocr = cast(*mut volatile u8, 0xB3)
+    let mut com: u8 = 128
+    if ch == 2 {
+        ocr = cast(*mut volatile u8, 0xB4)
+        com = 32
+    }
+    // Fast PWM mode 3, TOP=0xFF
+    *tccra = com | 3
+    *tccrb = 1
+    let pwm = Pwm{
+        tccra: tccra,
+        tccrb: tccrb,
+        ocr_l: ocr,
+        ocr_h: ocr,
+        top_l: ocr,
+        top_h: ocr,
+        com_mask: com,
+        tim: 2,
+        tim_clk_hz: tim_clk_hz
+    }
+    pwm.freq(1000)
+    pwm.duty_u16(0)
+    return pwm
+}
+
+pub fn (p: Pwm) freq(hz: i32) {
+    let mut f = hz
+    if f < 1 {
+        f = 1
+    }
+    if p.tim == 2 {
+        let mut cs: i32 = 1
+        let mut div: i32 = 1
+        let mut best = 1
+        let mut best_err = 2000000000
+        while cs <= 7 {
+            if cs == 1 { div = 1 }
+            if cs == 2 { div = 8 }
+            if cs == 3 { div = 32 }
+            if cs == 4 { div = 64 }
+            if cs == 5 { div = 128 }
+            if cs == 6 { div = 256 }
+            if cs == 7 { div = 1024 }
+            let got = p.tim_clk_hz / (div * 256)
+            let mut err = got - f
+            if err < 0 {
+                err = 0 - err
+            }
+            if err < best_err {
+                best_err = err
+                best = cs
+            }
+            cs = cs + 1
+        }
+        *(p.tccrb) = i32_to_u8(best)
+        return
+    }
+    let cs = pwm_t1_cs(p.tim_clk_hz, f)
+    let top = pwm_t1_top(p.tim_clk_hz, f, cs)
+    *(p.top_l) = u16_lo(top)
+    *(p.top_h) = u16_hi(top)
+    // keep WGM13|WGM12, set CS
+    *(p.tccrb) = i32_to_u8(24 | cs)
+}
+
+pub fn (p: Pwm) duty_u16(duty: i32) {
+    let top = pwm_read_top(p)
+    let ocr = pwm_duty_to_ocr(duty, top)
+    if p.tim == 2 {
+        *(p.ocr_l) = i32_to_u8(ocr)
+        return
+    }
+    *(p.ocr_l) = u16_lo(ocr)
+    *(p.ocr_h) = u16_hi(ocr)
+}
+
+pub fn (p: Pwm) deinit() {
+    let inv: u8 = p.com_mask ^ 255
+    *(p.tccra) = *(p.tccra) & inv
+    *(p.tccrb) = 0
+}

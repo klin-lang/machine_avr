@@ -1,0 +1,20 @@
+module machine_avr
+
+import testing
+
+fn test_pwm_duty_to_ocr() {
+    testing.assert_eq_i32(pwm_duty_to_ocr(0, 255), 0)
+    testing.assert_eq_i32(pwm_duty_to_ocr(65535, 255), 255)
+    testing.assert_eq_i32(pwm_duty_to_ocr(32768, 255), 128)
+}
+
+fn test_pwm_t1_cs_and_top_50hz() {
+    // 16 MHz / 50 Hz → need /8 → TOP = 39999
+    testing.assert_eq_i32(pwm_t1_cs(16000000, 50), 2)
+    testing.assert_eq_i32(pwm_t1_top(16000000, 50, 2), 39999)
+}
+
+fn test_pwm_t1_cs_1khz() {
+    testing.assert_eq_i32(pwm_t1_cs(16000000, 1000), 1)
+    testing.assert_eq_i32(pwm_t1_top(16000000, 1000, 1), 15999)
+}

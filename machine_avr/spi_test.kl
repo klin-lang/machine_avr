@@ -1,0 +1,18 @@
+module machine_avr
+
+import testing
+
+fn test_spi_rate_bits_4mhz() {
+    // 16MHz/4 = 4MHz → SPR=0, SPI2X=0 → pack 0
+    testing.assert_eq_i32(spi_rate_bits(16000000, 4000000), 0)
+}
+
+fn test_spi_rate_bits_1mhz() {
+    // 16MHz/16 = 1MHz → SPR=1 → pack 1
+    testing.assert_eq_i32(spi_rate_bits(16000000, 1000000), 1)
+}
+
+fn test_spi_rate_bits_8mhz() {
+    // 16MHz/2 = 8MHz → SPI2X → pack 4
+    testing.assert_eq_i32(spi_rate_bits(16000000, 8000000), 4)
+}

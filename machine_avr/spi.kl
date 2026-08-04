@@ -1,0 +1,138 @@
+/// ATmega328P SPI master (MMIO). Soft NSS — CS is a separate `Pin`.
+module machine_avr
+
+pub struct Spi {
+    spcr: *mut volatile u8
+    spsr: *mut volatile u8
+    spdr: *mut volatile u8
+}
+
+/// SPR1:0 + SPI2X encoding for closest rate ≤ baud.
+fn spi_rate_bits(spi_clk_hz: i32, baud_hz: i32): i32 {
+    let mut clk = spi_clk_hz
+    if clk < 1 {
+        clk = 1
+    }
+    let mut baud = baud_hz
+    if baud < 1 {
+        baud = 1
+    }
+    // div 2,4,8,16,32,64,128 → pack as (SPI2X<<2)|SPR
+    if clk / 2 <= baud {
+        return 4
+    }
+    if clk / 4 <= baud {
+        return 0
+    }
+    if clk / 8 <= baud {
+        return 5
+    }
+    if clk / 16 <= baud {
+        return 1
+    }
+    if clk / 32 <= baud {
+        return 6
+    }
+    if clk / 64 <= baud {
+        return 2
+    }
+    return 3
+}
+
+/// Configure SPI. Uno: SCK=PB5, MISO=PB4, MOSI=PB3. Soft NSS.
+pub fn spi_out(
+    sck_port: Port,
+    sck_num: i32,
+    mosi_port: Port,
+    mosi_num: i32,
+    miso_port: Port,
+    miso_num: i32,
+    spi_clk_hz: i32,
+    baud_hz: i32,
+    mode: i32
+): Spi {
+    let sck = pin_out(sck_port, sck_num)
+    let mosi = pin_out(mosi_port, mosi_num)
+    let miso = pin_in(miso_port, miso_num)
+    if sck.mask == 0 {
+    }
+    if mosi.mask == 0 {
+    }
+    if miso.mask == 0 {
+    }
+
+    let spcr = cast(*mut volatile u8, 0x4C)
+    let spsr = cast(*mut volatile u8, 0x4D)
+    let spdr = cast(*mut volatile u8, 0x4E)
+
+    let bits = spi_rate_bits(spi_clk_hz, baud_hz)
+    let spi2x = (bits >> 2) & 1
+    let spr = bits & 3
+    let mut m = mode
+    if m < 0 {
+        m = 0
+    }
+    if m > 3 {
+        m = 3
+    }
+    // SPE|MSTR|CPOL/CPHA|SPR
+    *spcr = i32_to_u8(80 | ((m & 3) << 2) | spr)
+    *spsr = i32_to_u8(spi2x)
+
+    return Spi{ spcr: spcr, spsr: spsr, spdr: spdr }
+}
+
+pub fn (s: Spi) write_read_u8(b: i32): i32 {
+    *(s.spdr) = i32_to_u8(b & 255)
+    // SPIF
+    while (*(s.spsr) & 128) == 0 {
+    }
+    return u8_as_i32(*(s.spdr))
+}
+
+pub fn (s: Spi) write(buf: []u8) {
+    let mut i: i32 = 0
+    while i < buf.len {
+        *(s.spdr) = buf[i]
+        while (*(s.spsr) & 128) == 0 {
+        }
+        let drain = u8_as_i32(*(s.spdr))
+        i = i + 1 + drain * 0
+    }
+}
+
+pub fn (s: Spi) readinto(buf: []u8) {
+    let mut i: i32 = 0
+    while i < buf.len {
+        *(s.spdr) = 255
+        while (*(s.spsr) & 128) == 0 {
+        }
+        let mut tmp: [4]u8
+        let p = cast(*mut i32, &tmp[0])
+        *p = u8_as_i32(*(s.spdr))
+        buf[i] = tmp[0]
+        i = i + 1
+    }
+}
+
+pub fn (s: Spi) write_readinto(wbuf: []u8, rbuf: []u8) {
+    let mut n = rbuf.len
+    if wbuf.len < n {
+        n = wbuf.len
+    }
+    let mut i: i32 = 0
+    while i < n {
+        *(s.spdr) = wbuf[i]
+        while (*(s.spsr) & 128) == 0 {
+        }
+        let mut tmp: [4]u8
+        let p = cast(*mut i32, &tmp[0])
+        *p = u8_as_i32(*(s.spdr))
+        rbuf[i] = tmp[0]
+        i = i + 1
+    }
+}
+
+pub fn (s: Spi) deinit() {
+    *(s.spcr) = 0
+}

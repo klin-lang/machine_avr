@@ -1,0 +1,18 @@
+module machine_avr
+
+import testing
+
+fn test_adc_u10_to_u16_edges() {
+    testing.assert_eq_i32(adc_u10_to_u16(0), 0)
+    testing.assert_eq_i32(adc_u10_to_u16(1023), 65535)
+}
+
+fn test_adc_u10_to_u16_mid() {
+    // 512 * 65535 / 1023 = 32799 (integer trunc)
+    testing.assert_eq_i32(adc_u10_to_u16(512), 32799)
+}
+
+fn test_adc_u10_to_u16_clamp() {
+    testing.assert_eq_i32(adc_u10_to_u16(0 - 1), 0)
+    testing.assert_eq_i32(adc_u10_to_u16(2000), 65535)
+}

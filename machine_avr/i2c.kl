@@ -1,0 +1,140 @@
+/// ATmega328P TWI / I2C master (MMIO). 7-bit addresses. Explicit i2c_clk_hz.
+module machine_avr
+
+pub struct I2c {
+    twbr: *mut volatile u8
+    twsr: *mut volatile u8
+    twdr: *mut volatile u8
+    twcr: *mut volatile u8
+}
+
+/// TWBR = (clk/freq - 16) / 2 for TWPS=0.
+fn i2c_twbr(i2c_clk_hz: i32, freq_hz: i32): i32 {
+    let mut clk = i2c_clk_hz
+    if clk < 1 {
+        clk = 1
+    }
+    let mut f = freq_hz
+    if f < 1 {
+        f = 1
+    }
+    let mut twbr = (clk / f - 16) / 2
+    if twbr < 0 {
+        twbr = 0
+    }
+    if twbr > 255 {
+        twbr = 255
+    }
+    return twbr
+}
+
+fn i2c_wait(twcr: *mut volatile u8) {
+    while (*twcr & 128) == 0 {
+    }
+}
+
+/// Configure TWI. Uno: SDA=PC4, SCL=PC5. Typical `i2c_clk_hz=16000000`.
+pub fn i2c_out(
+    sda_port: Port,
+    sda_num: i32,
+    scl_port: Port,
+    scl_num: i32,
+    i2c_clk_hz: i32,
+    freq_hz: i32
+): I2c {
+    let sda = pin_in(sda_port, sda_num)
+    let scl = pin_in(scl_port, scl_num)
+    // enable pull-ups
+    sda.high()
+    scl.high()
+
+    let twbr = cast(*mut volatile u8, 0xB8)
+    let twsr = cast(*mut volatile u8, 0xB9)
+    let twdr = cast(*mut volatile u8, 0xBB)
+    let twcr = cast(*mut volatile u8, 0xBC)
+
+    *twsr = 0
+    *twbr = i32_to_u8(i2c_twbr(i2c_clk_hz, freq_hz))
+    // TWEN
+    *twcr = 4
+
+    return I2c{ twbr: twbr, twsr: twsr, twdr: twdr, twcr: twcr }
+}
+
+fn i2c_start(bus: I2c) {
+    // TWINT|TWSTA|TWEN
+    *(bus.twcr) = 164
+    i2c_wait(bus.twcr)
+}
+
+fn i2c_stop(bus: I2c) {
+    // TWINT|TWSTO|TWEN
+    *(bus.twcr) = 148
+}
+
+fn i2c_write_raw(bus: I2c, b: i32) {
+    *(bus.twdr) = i32_to_u8(b & 255)
+    // TWINT|TWEN
+    *(bus.twcr) = 132
+    i2c_wait(bus.twcr)
+}
+
+fn i2c_read_raw(bus: I2c, ack: i32): i32 {
+    if ack != 0 {
+        // TWINT|TWEN|TWEA
+        *(bus.twcr) = 196
+    } else {
+        *(bus.twcr) = 132
+    }
+    i2c_wait(bus.twcr)
+    return u8_as_i32(*(bus.twdr))
+}
+
+pub fn (bus: I2c) writeto(addr: i32, buf: []u8) {
+    i2c_start(bus)
+    i2c_write_raw(bus, (addr & 127) << 1)
+    let mut i: i32 = 0
+    while i < buf.len {
+        i2c_write_raw(bus, u8_as_i32(buf[i]))
+        i = i + 1
+    }
+    i2c_stop(bus)
+}
+
+pub fn (bus: I2c) readfrom_into(addr: i32, buf: []u8) {
+    let n = buf.len
+    if n < 1 {
+        return
+    }
+    i2c_start(bus)
+    i2c_write_raw(bus, ((addr & 127) << 1) | 1)
+    let mut i: i32 = 0
+    while i < n {
+        let ack = 1
+        if i == n - 1 {
+            // NACK last
+        }
+        let mut a = 1
+        if i == n - 1 {
+            a = 0
+        }
+        let v = i2c_read_raw(bus, a)
+        let mut tmp: [4]u8
+        let p = cast(*mut i32, &tmp[0])
+        *p = v
+        buf[i] = tmp[0]
+        i = i + 1
+    }
+    i2c_stop(bus)
+}
+
+pub fn (bus: I2c) write_readfrom_into(addr: i32, w: i32, buf: []u8) {
+    i2c_start(bus)
+    i2c_write_raw(bus, (addr & 127) << 1)
+    i2c_write_raw(bus, w & 255)
+    bus.readfrom_into(addr, buf)
+}
+
+pub fn (bus: I2c) deinit() {
+    *(bus.twcr) = 0
+}

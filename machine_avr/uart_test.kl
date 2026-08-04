@@ -1,0 +1,11 @@
+module machine_avr
+
+import testing
+
+fn test_uart_ubrr_9600() {
+    testing.assert_eq_i32(uart_ubrr(16000000, 9600), 103)
+}
+
+fn test_uart_ubrr_115200() {
+    testing.assert_eq_i32(uart_ubrr(16000000, 115200), 8)
+}

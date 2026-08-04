@@ -1,0 +1,18 @@
+module machine_avr
+
+import testing
+
+fn test_rc_pulse_to_duty_center() {
+    testing.assert_eq_i32(rc_pulse_to_duty_u16(1500, 20000), 4915)
+}
+
+fn test_rc_pulse_to_duty_edges() {
+    testing.assert_eq_i32(rc_pulse_to_duty_u16(1000, 20000), 3276)
+    testing.assert_eq_i32(rc_pulse_to_duty_u16(2000, 20000), 6553)
+}
+
+fn test_rc_pos_f32_scale() {
+    testing.assert_eq_i32(rc_pos_f32_to_100000(0.0), 0)
+    testing.assert_eq_i32(rc_pos_f32_to_100000(0.5), 50000)
+    testing.assert_eq_i32(rc_pos_f32_to_100000(1.0), 100000)
+}

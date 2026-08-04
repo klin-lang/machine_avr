@@ -1,0 +1,100 @@
+/// ATmega328P USART0 (MMIO). 8N1. Explicit uart_clk_hz (F_CPU).
+module machine_avr
+
+pub struct Uart {
+    ucsra: *mut volatile u8
+    ucsrb: *mut volatile u8
+    udr: *mut volatile u8
+}
+
+/// UBRR = uart_clk/(16*baud) - 1 (U2X=0).
+fn uart_ubrr(uart_clk_hz: i32, baud: i32): i32 {
+    let mut clk = uart_clk_hz
+    if clk < 1 {
+        clk = 1
+    }
+    let mut b = baud
+    if b < 1 {
+        b = 1
+    }
+    let div = 16 * b
+    let mut ubrr = (clk + div / 2) / div - 1
+    if ubrr < 0 {
+        ubrr = 0
+    }
+    return ubrr
+}
+
+/// Configure USART0. Typical Uno: TX=PD1, RX=PD0, `uart_clk_hz=16000000`.
+pub fn uart_out(
+    tx_port: Port,
+    tx_num: i32,
+    rx_port: Port,
+    rx_num: i32,
+    uart_clk_hz: i32,
+    baud: i32
+): Uart {
+    let tx = pin_out(tx_port, tx_num)
+    let rx = pin_in(rx_port, rx_num)
+    if tx.mask == 0 {
+    }
+    if rx.mask == 0 {
+    }
+
+    let ubrr = uart_ubrr(uart_clk_hz, baud)
+    let ubrrl = cast(*mut volatile u8, 0xC4)
+    let ubrrh = cast(*mut volatile u8, 0xC5)
+    let ucsrc = cast(*mut volatile u8, 0xC2)
+    let ucsrb = cast(*mut volatile u8, 0xC1)
+    let ucsra = cast(*mut volatile u8, 0xC0)
+    let udr = cast(*mut volatile u8, 0xC6)
+
+    *ubrrh = u16_hi(ubrr)
+    *ubrrl = u16_lo(ubrr)
+    // UCSZ01|UCSZ00 = 8-bit
+    *ucsrc = 6
+    // TXEN|RXEN
+    *ucsrb = 24
+    *ucsra = 0
+
+    return Uart{ ucsra: ucsra, ucsrb: ucsrb, udr: udr }
+}
+
+pub fn (u: Uart) write_u8(b: i32) {
+    // UDRE0
+    while (*(u.ucsra) & 32) == 0 {
+    }
+    *(u.udr) = i32_to_u8(b & 255)
+}
+
+pub fn (u: Uart) any(): bool {
+    // RXC0
+    return (*(u.ucsra) & 128) != 0
+}
+
+pub fn (u: Uart) read_u8(): i32 {
+    while (*(u.ucsra) & 128) == 0 {
+    }
+    return u8_as_i32(*(u.udr))
+}
+
+pub fn (u: Uart) try_read_u8(): i32 {
+    if (*(u.ucsra) & 128) == 0 {
+        return 0 - 1
+    }
+    return u8_as_i32(*(u.udr))
+}
+
+pub fn (u: Uart) write(buf: []u8) {
+    let mut i: i32 = 0
+    while i < buf.len {
+        while (*(u.ucsra) & 32) == 0 {
+        }
+        *(u.udr) = buf[i]
+        i = i + 1
+    }
+}
+
+pub fn (u: Uart) deinit() {
+    *(u.ucsrb) = 0
+}

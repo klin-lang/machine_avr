@@ -1,0 +1,11 @@
+module machine_avr
+
+import testing
+
+fn test_i2c_twbr_100k() {
+    testing.assert_eq_i32(i2c_twbr(16000000, 100000), 72)
+}
+
+fn test_i2c_twbr_400k() {
+    testing.assert_eq_i32(i2c_twbr(16000000, 400000), 12)
+}
