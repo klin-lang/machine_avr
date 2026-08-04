@@ -6,3 +6,4 @@ out/
 *.hex
 .task/
 .DS_Store
+examples/*/out/

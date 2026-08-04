@@ -1,0 +1,38 @@
+/// Shared Klin helpers for megaAVR MMIO (no i32↔u8 cast in MVP).
+module machine_avr
+
+fn i32_to_u8(v: i32): u8 {
+    let mut n = v & 255
+    let mut out: u8 = 0
+    let mut bit: u8 = 1
+    while n > 0 {
+        if (n & 1) != 0 {
+            out = out | bit
+        }
+        n = n >> 1
+        bit = bit + bit
+    }
+    return out
+}
+
+fn u8_as_i32(v: u8): i32 {
+    let mut n: i32 = 0
+    let mut bit: i32 = 1
+    let mut x = v
+    while x != 0 {
+        if (x & 1) != 0 {
+            n = n | bit
+        }
+        x = x >> 1
+        bit = bit << 1
+    }
+    return n
+}
+
+fn u16_lo(n: i32): u8 {
+    return i32_to_u8(n & 255)
+}
+
+fn u16_hi(n: i32): u8 {
+    return i32_to_u8((n >> 8) & 255)
+}

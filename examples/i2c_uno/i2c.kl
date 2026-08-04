@@ -1,0 +1,16 @@
+// Arduino Uno: TWI SDA=PC4, SCL=PC5. F_CPU = 16_000_000. 100 kHz.
+import "../../machine_avr" machine
+
+fn main() {
+    let i2c = machine.i2c_out(
+        machine.Port.C,
+        4,
+        machine.Port.C,
+        5,
+        16000000,
+        100000
+    )
+    let mut buf: [1]u8
+    buf[0] = 0
+    i2c.writeto(0x3C, buf)
+}

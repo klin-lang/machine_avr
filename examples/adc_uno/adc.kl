@@ -1,0 +1,17 @@
+// Arduino Uno: A0 = PC0 / ADC0.
+import "../../machine_avr" machine
+
+fn main() {
+    let adc = machine.adc_out(machine.Port.C, 0, 0)
+    let mut v: i32 = 0
+    while true {
+        v = adc.read_u16()
+        let mut i: i32 = 0
+        while i < 20000 {
+            i = i + 1
+        }
+        if v < 0 {
+            break
+        }
+    }
+}

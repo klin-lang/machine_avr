@@ -1,0 +1,67 @@
+/// ATmega328P ADC (MMIO). 10-bit. Channel explicit. No DAC on megaAVR.
+module machine_avr
+
+pub struct Adc {
+    admux: *mut volatile u8
+    adcsra: *mut volatile u8
+    adcl: *mut volatile u8
+    adch: *mut volatile u8
+    channel: i32
+}
+
+fn adc_u10_to_u16(raw: i32): i32 {
+    let mut r = raw
+    if r < 0 {
+        r = 0
+    }
+    if r > 1023 {
+        r = 1023
+    }
+    return (r * 65535) / 1023
+}
+
+/// Configure ADC. Uno A0 = PC0 channel 0. `adc_out(Port.C, 0, 0)`.
+pub fn adc_out(port: Port, num: i32, channel: i32): Adc {
+    let p = pin_in(port, num)
+    if p.mask == 0 {
+    }
+    let mut ch = channel
+    if ch < 0 {
+        ch = 0
+    }
+    if ch > 8 {
+        ch = 8
+    }
+
+    let admux = cast(*mut volatile u8, 0x7C)
+    let adcsra = cast(*mut volatile u8, 0x7A)
+    let adcl = cast(*mut volatile u8, 0x78)
+    let adch = cast(*mut volatile u8, 0x79)
+
+    // REFS0 = AVcc, MUX = channel
+    *admux = i32_to_u8(64 | (ch & 15))
+    // ADEN | ADPS2|ADPS1|ADPS0 (div 128)
+    *adcsra = 135
+
+    return Adc{ admux: admux, adcsra: adcsra, adcl: adcl, adch: adch, channel: ch }
+}
+
+/// Raw conversion `0..=1023` (10-bit; name `read_u12` kept for port parity).
+pub fn (a: Adc) read_u12(): i32 {
+    *(a.admux) = i32_to_u8(64 | (a.channel & 15))
+    // ADSC
+    *(a.adcsra) = *(a.adcsra) | 64
+    while (*(a.adcsra) & 64) != 0 {
+    }
+    let lo = u8_as_i32(*(a.adcl))
+    let hi = u8_as_i32(*(a.adch))
+    return (hi << 8) | lo
+}
+
+pub fn (a: Adc) read_u16(): i32 {
+    return adc_u10_to_u16(a.read_u12())
+}
+
+pub fn (a: Adc) deinit() {
+    *(a.adcsra) = 0
+}

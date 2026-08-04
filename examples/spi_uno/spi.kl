@@ -1,0 +1,21 @@
+// Arduino Uno: SPI SCK=PB5, MISO=PB4, MOSI=PB3. Soft NSS (app CS).
+import "../../machine_avr" machine
+
+fn main() {
+    let spi = machine.spi_out(
+        machine.Port.B,
+        5,
+        machine.Port.B,
+        3,
+        machine.Port.B,
+        4,
+        16000000,
+        1000000,
+        0
+    )
+    let mut tx: [1]u8
+    let mut rx: [1]u8
+    tx[0] = 159
+    rx[0] = 0
+    spi.write_readinto(tx, rx)
+}

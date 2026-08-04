@@ -1,0 +1,18 @@
+// Arduino Uno: D9 = PB1 / OC1A servo PWM @ 50 Hz.
+import "../../machine_avr" machine
+
+fn main() {
+    let rc = machine.rc_out(machine.Port.B, 1, 1, 1, 16000000, 50, 1000, 2000)
+    let mut pos: i32 = 0
+    while true {
+        rc.out(pos, 0)
+        pos = pos + 5000
+        if pos > 100000 {
+            pos = 0
+        }
+        let mut i: i32 = 0
+        while i < 80000 {
+            i = i + 1
+        }
+    }
+}
