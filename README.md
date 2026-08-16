@@ -8,44 +8,53 @@ classic `PORTx` / Timer / USART / TWI / SPI / ADC MMIO explicitly.
 
 For **ATxmega** (different PORT map @ `0x0600`), see
 [`machine_xmega`](https://github.com/klin-lang/machine_xmega).
+For modern **tinyAVR** (AVRxt + UPDI), see Klin issue
+[141](https://github.com/klin-lang/klin/blob/main/issues/141-machine-tinyavr.md)
+(`machine_tinyavr` — not this package).
 
 Decision / catalog: [Klin issue 061](https://github.com/klin-lang/klin/blob/main/issues/061-micropython-machine-api.md).
+Leonardo plan: [Klin issue 142](https://github.com/klin-lang/klin/blob/main/issues/142-machine-avr-atmega32u4.md).
 
 ## Status
 
 | API | Status |
 |---|---|
-| `Pin` ATmega328P (`pin_out` / `pin_in`) | ✅ MVP |
-| `Pin` ATmega2560 (`pin_out_2560` / `pin_in_2560`) | ✅ MVP |
-| `Pwm` | ✅ Timer1/Timer2 (`pwm_out`) |
-| `Rc` | ✅ servo helper on `Pwm` (`rc_out`) |
-| `Uart` | ✅ USART0 (`uart_out`) |
-| `I2c` | ✅ TWI master (`i2c_out`) |
-| `Spi` | ✅ SPI master soft NSS (`spi_out`) |
-| `Adc` | ✅ 10-bit ADC (`adc_out`) |
-| `Dac` | ❌ not available on ATmega328P / ATmega2560 |
-| `Signal` / `I2S` / `RTC` / `Timer` / `WDT` / `SDCard` / `USBDevice` | ⏳ later |
-| tinyAVR / AVR Dx | later (different IO) |
+| `Pin` ATmega328P (`pin_out` / `pin_in`) | ✅ |
+| `Pin` ATmega2560 (`pin_out_2560` / `pin_in_2560`) | ✅ |
+| `Pin` ATmega32U4 (`pin_out_32u4` / `pin_in_32u4`) | ✅ |
+| `Pwm` 328P (`pwm_out`) | ✅ Timer1/Timer2 |
+| `Pwm` 32U4 (`pwm_out_32u4`) | ✅ Timer1/Timer3 |
+| `Rc` (`rc_out` / `rc_out_32u4`) | ✅ |
+| `Uart` 328P USART0 (`uart_out`) | ✅ |
+| `Uart` 32U4 USART1 (`uart_out_32u4`) | ✅ (not USB CDC) |
+| `I2c` (`i2c_out` / `i2c_out_32u4`) | ✅ TWI master |
+| `Spi` (`spi_out` / `spi_out_32u4`) | ✅ soft NSS |
+| `Adc` (`adc_out` / `adc_out_32u4`) | ✅ 10-bit |
+| `Dac` | ❌ not on 328P / 2560 / 32U4 |
+| `USBDevice` (32U4 CDC/HID) | ⏳ later |
 
-`version()` is `2` (`@v0.2.0`).
+`version()` is `3` (`@v0.3.0`).
 
 No runtime chip detect. Arduino-style `D13` mapping is board-level — this
 package uses **port letter + bit** (Uno LED = `Port.B`, 5; Mega LED =
-`Port2560.B`, 7). Clocks are explicit (`*_clk_hz`).
+`Port2560.B`, 7; Leonardo LED = `Port32U4.C`, 7). Clocks are explicit
+(`*_clk_hz`).
 
 ## Requirements
 
 - [Klin](https://github.com/klin-lang/klin) compiler (`klin` or `dart run path/to/bin/klin.dart`)
-- For board images: `avr-gcc` + device CRT / linker (`atmega328p` / `atmega2560`)
+- For board images: `avr-gcc` + device CRT / linker (`atmega328p` / `atmega2560` / `atmega32u4`)
+- Flash Leonardo with `avrdude` (Caterina); DFU optional
 
 ## Layout
 
 ```text
 machine_avr/             # module machine_avr (directory package)
-  version.kl             # version() → 2
+  version.kl             # version() → 3
   pin.kl / pwm.kl / rc.kl / uart.kl / i2c.kl / spi.kl / adc.kl
   *_test.kl              # skipped on import
 examples/blink_uno/ … adc_uno/
+examples/blink_leonardo/ … adc_leonardo/
 ```
 
 ## Usage — ATmega328P (Uno / Nano / Pro Mini)
@@ -81,8 +90,23 @@ fn main() {
 }
 ```
 
+## Usage — ATmega32U4 (Leonardo / Micro / Pro Micro)
+
+```klin
+import "github/klin-lang/machine_avr" machine
+
+fn main() {
+    let led = machine.pin_out_32u4(machine.Port32U4.C, 7)  // D13
+    let pwm = machine.pwm_out_32u4(machine.Port32U4.B, 5, 1, 1, 16000000) // D9
+    let u = machine.uart_out_32u4(
+        machine.Port32U4.D, 3, machine.Port32U4.D, 2, 16000000, 9600) // Serial1
+    let adc = machine.adc_out_32u4(machine.Port32U4.F, 7, 7) // A0
+    led.toggle()
+}
+```
+
 ```sh
-klin get github/klin-lang/machine_avr@v0.2.0
+klin get github/klin-lang/machine_avr@v0.3.0
 ```
 
 ## Examples
@@ -91,6 +115,9 @@ klin get github/klin-lang/machine_avr@v0.2.0
 cd examples/blink_uno   # also: pwm_uno, rc_uno, uart_uno, i2c_uno, spi_uno, adc_uno
 make emit KLIN=/path/to/klin/bin/klin.dart
 # → out/*.c
+
+cd examples/blink_leonardo  # also: pwm_leonardo, uart_leonardo, adc_leonardo
+make emit KLIN=/path/to/klin/bin/klin.dart
 ```
 
 Linking a flashable ELF needs your board’s startup and linker script

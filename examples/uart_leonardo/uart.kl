@@ -1,0 +1,32 @@
+// Leonardo HardwareSerial1: TX=PD3 (D1), RX=PD2 (D0). F_CPU = 16_000_000.
+// USB CDC Serial is not this USART.
+import "../../machine_avr" machine
+
+fn main() {
+    let u = machine.uart_out_32u4(
+        machine.Port32U4.D,
+        3,
+        machine.Port32U4.D,
+        2,
+        16000000,
+        9600
+    )
+    let mut msg: [6]u8
+    msg[0] = 104
+    msg[1] = 101
+    msg[2] = 108
+    msg[3] = 108
+    msg[4] = 111
+    msg[5] = 10
+    while true {
+        u.write(msg)
+        if u.any() {
+            let b = u.read_u8()
+            u.write_u8(b)
+        }
+        let mut i: i32 = 0
+        while i < 20000 {
+            i = i + 1
+        }
+    }
+}

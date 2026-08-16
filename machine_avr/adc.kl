@@ -65,3 +65,27 @@ pub fn (a: Adc) read_u16(): i32 {
 pub fn (a: Adc) deinit() {
     *(a.adcsra) = 0
 }
+
+/// ATmega32U4 ADC. Leonardo A0 = PF7 channel 7: `adc_out_32u4(Port32U4.F, 7, 7)`.
+pub fn adc_out_32u4(port: Port32U4, num: i32, channel: i32): Adc {
+    let p = pin_in_32u4(port, num)
+    if p.mask == 0 {
+    }
+    let mut ch = channel
+    if ch < 0 {
+        ch = 0
+    }
+    if ch > 8 {
+        ch = 8
+    }
+
+    let admux = cast(*mut volatile u8, 0x7C)
+    let adcsra = cast(*mut volatile u8, 0x7A)
+    let adcl = cast(*mut volatile u8, 0x78)
+    let adch = cast(*mut volatile u8, 0x79)
+
+    *admux = i32_to_u8(64 | (ch & 15))
+    *adcsra = 135
+
+    return Adc{ admux: admux, adcsra: adcsra, adcl: adcl, adch: adch, channel: ch }
+}

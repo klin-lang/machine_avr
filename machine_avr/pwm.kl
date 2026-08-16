@@ -95,13 +95,32 @@ fn pwm_read_top(p: Pwm): i32 {
     return (hi << 8) | lo
 }
 
-/// Configure pin as Timer PWM output.
+/// Configure pin as Timer PWM output (ATmega328P).
 pub fn pwm_out(port: Port, num: i32, tim: i32, ch: i32, tim_clk_hz: i32): Pwm {
     let pin = pin_out(port, num)
     if pin.mask == 0 {
     }
     if tim == 2 {
         return pwm_out_t2(ch, tim_clk_hz)
+    }
+    return pwm_out_t1(ch, tim_clk_hz)
+}
+
+/// ATmega32U4 Timer1 / Timer3 PWM.
+/// `tim=1` → Timer1 (PB5=OC1A D9, PB6=OC1B D10); `tim=3` → Timer3 (PC6=OC3A D5).
+/// `ch=1` → compare A, `ch=2` → compare B.
+pub fn pwm_out_32u4(
+    port: Port32U4,
+    num: i32,
+    tim: i32,
+    ch: i32,
+    tim_clk_hz: i32
+): Pwm {
+    let pin = pin_out_32u4(port, num)
+    if pin.mask == 0 {
+    }
+    if tim == 3 {
+        return pwm_out_t3(ch, tim_clk_hz)
     }
     return pwm_out_t1(ch, tim_clk_hz)
 }
@@ -159,6 +178,38 @@ fn pwm_out_t2(ch: i32, tim_clk_hz: i32): Pwm {
         top_h: ocr,
         com_mask: com,
         tim: 2,
+        tim_clk_hz: tim_clk_hz
+    }
+    pwm.freq(1000)
+    pwm.duty_u16(0)
+    return pwm
+}
+
+fn pwm_out_t3(ch: i32, tim_clk_hz: i32): Pwm {
+    let tccra = cast(*mut volatile u8, 0x90)
+    let tccrb = cast(*mut volatile u8, 0x91)
+    let icr_l = cast(*mut volatile u8, 0x96)
+    let icr_h = cast(*mut volatile u8, 0x97)
+    let mut ocr_l = cast(*mut volatile u8, 0x98)
+    let mut ocr_h = cast(*mut volatile u8, 0x99)
+    let mut com: u8 = 128
+    if ch == 2 {
+        ocr_l = cast(*mut volatile u8, 0x9A)
+        ocr_h = cast(*mut volatile u8, 0x9B)
+        com = 32
+    }
+    // mode 14 Fast PWM ICR3: WGM31|WGM32|WGM33; COM clear-on-match
+    *tccra = com | 2
+    *tccrb = 24
+    let pwm = Pwm{
+        tccra: tccra,
+        tccrb: tccrb,
+        ocr_l: ocr_l,
+        ocr_h: ocr_h,
+        top_l: icr_l,
+        top_h: icr_h,
+        com_mask: com,
+        tim: 3,
         tim_clk_hz: tim_clk_hz
     }
     pwm.freq(1000)
