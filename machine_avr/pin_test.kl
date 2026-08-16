@@ -4,8 +4,8 @@ import testing
 
 // Host-safe checks only (no MMIO). Skipped on package import (*_test.kl).
 
-fn test_version_is_two() {
-    testing.assert_eq_i32(version(), 2)
+fn test_version_is_three() {
+    testing.assert_eq_i32(version(), 3)
 }
 
 fn test_port_328_indices() {
@@ -20,4 +20,18 @@ fn test_port_2560_indices() {
     testing.assert_eq_i32(cast(i32, Port2560.G), 6)
     testing.assert_eq_i32(cast(i32, Port2560.H), 7)
     testing.assert_eq_i32(cast(i32, Port2560.L), 10)
+}
+
+fn test_port_32u4_indices() {
+    testing.assert_eq_i32(cast(i32, Port32U4.B), 0)
+    testing.assert_eq_i32(cast(i32, Port32U4.C), 1)
+    testing.assert_eq_i32(cast(i32, Port32U4.D), 2)
+    testing.assert_eq_i32(cast(i32, Port32U4.E), 3)
+    testing.assert_eq_i32(cast(i32, Port32U4.F), 4)
+}
+
+fn test_pin_base_32u4_data_space() {
+    testing.assert_eq_i32(pin_base_32u4(Port32U4.B), 0x23)
+    testing.assert_eq_i32(pin_base_32u4(Port32U4.C), 0x26)
+    testing.assert_eq_i32(pin_base_32u4(Port32U4.F), 0x2F)
 }

@@ -138,3 +138,29 @@ pub fn (bus: I2c) write_readfrom_into(addr: i32, w: i32, buf: []u8) {
 pub fn (bus: I2c) deinit() {
     *(bus.twcr) = 0
 }
+
+/// ATmega32U4 TWI. Leonardo: SDA=PD1 (D2), SCL=PD0 (D3).
+pub fn i2c_out_32u4(
+    sda_port: Port32U4,
+    sda_num: i32,
+    scl_port: Port32U4,
+    scl_num: i32,
+    i2c_clk_hz: i32,
+    freq_hz: i32
+): I2c {
+    let sda = pin_in_32u4(sda_port, sda_num)
+    let scl = pin_in_32u4(scl_port, scl_num)
+    sda.high()
+    scl.high()
+
+    let twbr = cast(*mut volatile u8, 0xB8)
+    let twsr = cast(*mut volatile u8, 0xB9)
+    let twdr = cast(*mut volatile u8, 0xBB)
+    let twcr = cast(*mut volatile u8, 0xBC)
+
+    *twsr = 0
+    *twbr = i32_to_u8(i2c_twbr(i2c_clk_hz, freq_hz))
+    *twcr = 4
+
+    return I2c{ twbr: twbr, twsr: twsr, twdr: twdr, twcr: twcr }
+}

@@ -1,0 +1,9 @@
+// Leonardo / Micro / Pro Micro: D13 LED = PC7.
+import "../../machine_avr" machine
+
+fn main() {
+    let led = machine.pin_out_32u4(machine.Port32U4.C, 7)
+    while true {
+        led.toggle()
+    }
+}

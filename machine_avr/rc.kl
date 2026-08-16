@@ -131,3 +131,19 @@ pub fn (r: Rc) out_f32(pos: f32, k: i32) {
 pub fn (r: Rc) deinit() {
     r.pwm.deinit()
 }
+
+/// ATmega32U4 RC / servo on `pwm_out_32u4`.
+/// Leonardo D9 = PB5 OC1A: `rc_out_32u4(Port32U4.B, 5, 1, 1, 16000000, 50, 1000, 2000)`.
+pub fn rc_out_32u4(
+    port: Port32U4,
+    num: i32,
+    tim: i32,
+    ch: i32,
+    tim_clk_hz: i32,
+    freq_hz: i32,
+    us_min: i32,
+    us_max: i32
+): Rc {
+    let pwm = pwm_out_32u4(port, num, tim, ch, tim_clk_hz)
+    return rc_from_pwm(pwm, freq_hz, us_min, us_max)
+}

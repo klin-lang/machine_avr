@@ -136,3 +136,45 @@ pub fn (s: Spi) write_readinto(wbuf: []u8, rbuf: []u8) {
 pub fn (s: Spi) deinit() {
     *(s.spcr) = 0
 }
+
+/// ATmega32U4 SPI. Leonardo: SCK=PB1 (D15), MOSI=PB2 (D16), MISO=PB3 (D14).
+pub fn spi_out_32u4(
+    sck_port: Port32U4,
+    sck_num: i32,
+    mosi_port: Port32U4,
+    mosi_num: i32,
+    miso_port: Port32U4,
+    miso_num: i32,
+    spi_clk_hz: i32,
+    baud_hz: i32,
+    mode: i32
+): Spi {
+    let sck = pin_out_32u4(sck_port, sck_num)
+    let mosi = pin_out_32u4(mosi_port, mosi_num)
+    let miso = pin_in_32u4(miso_port, miso_num)
+    if sck.mask == 0 {
+    }
+    if mosi.mask == 0 {
+    }
+    if miso.mask == 0 {
+    }
+
+    let spcr = cast(*mut volatile u8, 0x4C)
+    let spsr = cast(*mut volatile u8, 0x4D)
+    let spdr = cast(*mut volatile u8, 0x4E)
+
+    let bits = spi_rate_bits(spi_clk_hz, baud_hz)
+    let spi2x = (bits >> 2) & 1
+    let spr = bits & 3
+    let mut m = mode
+    if m < 0 {
+        m = 0
+    }
+    if m > 3 {
+        m = 3
+    }
+    *spcr = i32_to_u8(80 | ((m & 3) << 2) | spr)
+    *spsr = i32_to_u8(spi2x)
+
+    return Spi{ spcr: spcr, spsr: spsr, spdr: spdr }
+}

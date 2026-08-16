@@ -98,3 +98,39 @@ pub fn (u: Uart) write(buf: []u8) {
 pub fn (u: Uart) deinit() {
     *(u.ucsrb) = 0
 }
+
+/// ATmega32U4 USART1 (MMIO). Leonardo HardwareSerial1: TX=PD3 (D1), RX=PD2 (D0).
+/// USB CDC Serial is separate — not this factory.
+pub fn uart_out_32u4(
+    tx_port: Port32U4,
+    tx_num: i32,
+    rx_port: Port32U4,
+    rx_num: i32,
+    uart_clk_hz: i32,
+    baud: i32
+): Uart {
+    let tx = pin_out_32u4(tx_port, tx_num)
+    let rx = pin_in_32u4(rx_port, rx_num)
+    if tx.mask == 0 {
+    }
+    if rx.mask == 0 {
+    }
+
+    let ubrr = uart_ubrr(uart_clk_hz, baud)
+    let ubrrl = cast(*mut volatile u8, 0xCC)
+    let ubrrh = cast(*mut volatile u8, 0xCD)
+    let ucsrc = cast(*mut volatile u8, 0xCA)
+    let ucsrb = cast(*mut volatile u8, 0xC9)
+    let ucsra = cast(*mut volatile u8, 0xC8)
+    let udr = cast(*mut volatile u8, 0xCE)
+
+    *ubrrh = u16_hi(ubrr)
+    *ubrrl = u16_lo(ubrr)
+    // UCSZ11|UCSZ10 = 8-bit
+    *ucsrc = 6
+    // TXEN1|RXEN1
+    *ucsrb = 24
+    *ucsra = 0
+
+    return Uart{ ucsra: ucsra, ucsrb: ucsrb, udr: udr }
+}

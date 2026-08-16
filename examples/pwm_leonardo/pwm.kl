@@ -1,0 +1,29 @@
+// Leonardo D9 = PB5 / OC1A (Timer1 channel A). F_CPU = 16_000_000.
+import "../../machine_avr" machine
+
+fn main() {
+    let pwm = machine.pwm_out_32u4(machine.Port32U4.B, 5, 1, 1, 16000000)
+    pwm.freq(1000)
+    let mut duty: i32 = 0
+    let mut up = true
+    while true {
+        pwm.duty_u16(duty)
+        if up {
+            duty = duty + 2048
+            if duty >= 65535 {
+                duty = 65535
+                up = false
+            }
+        } else {
+            duty = duty - 2048
+            if duty <= 0 {
+                duty = 0
+                up = true
+            }
+        }
+        let mut i: i32 = 0
+        while i < 20000 {
+            i = i + 1
+        }
+    }
+}
